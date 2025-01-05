@@ -1,0 +1,48 @@
+name: Build and Release Self-Contained JAR
+run-name: ${{ github.actor }} is building a jar file for his Maze Game 🚀
+on: [push]
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Java JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Create build directories
+        run: |
+          mkdir -p build/classes
+          mkdir -p build/resources
+
+      - name: Compile Java source files
+        run: |
+          find dev/abhay7/MazeGame -name '*.java' > sources.txt
+          javac -d build/classes @sources.txt
+
+      - name: Copy resources
+        run: |
+          cp -r res build/resources
+
+      - name: Package JAR file
+        run: |
+          mkdir -p build/jar
+          cd build/classes
+          jar cf MazeGame.jar -C . .
+          cd ../resources
+          jar uf ../classes/MazeGame.jar -C . .
+          echo "Main-Class: dev.abhay7.MazeGame.MazeGame" > manifest.txt
+          jar umf manifest.txt ../classes/MazeGame.jar
+          mv ../classes/MazeGame.jar ../jar/MazeGame.jar
+
+      - name: Upload JAR as release asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: build/jar/MazeGame.jar
+          asset_name: MazeGame.jar
+          asset_content_type: application/java-archive
