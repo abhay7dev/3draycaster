@@ -30,6 +30,7 @@ public class Window extends JFrame {
         game.start(); // Start the game (Executing the thread)
     }
 
+    // Ensure the audio streams are cleaned when the "X" button is pressed to close the window.
     @Override
     public void dispose() {
         if(game.player != null) game.player.closeAudioStreams();

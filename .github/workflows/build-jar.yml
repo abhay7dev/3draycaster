@@ -14,17 +14,17 @@ jobs:
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
       - name: Create build directories
         run: |
-          mkdir -p build/classes
+          mkdir -p build/classes_8
           mkdir -p build/resources
 
       - name: Compile Java source files
         run: |
           find dev/abhay7/MazeGame -name '*.java' > sources.txt
-          javac -d build/classes @sources.txt
+          javac --release 8 -d build/classes_8 @sources.txt
 
       - name: Copy resources
         run: |
@@ -33,13 +33,13 @@ jobs:
       - name: Package JAR file
         run: |
           mkdir -p build/jar
-          cd build/classes
-          jar cf MazeGame.jar -C . .
+          cd build/classes_8
+          jar cf MazeGame_8.jar -C . .
           cd ../resources
-          jar uf ../classes/MazeGame.jar -C . .
+          jar uf ../classes_8/MazeGame_8.jar -C . .
           echo "Main-Class: dev.abhay7.MazeGame.MazeGame" > manifest.txt
-          jar umf manifest.txt ../classes/MazeGame.jar
-          mv ../classes/MazeGame.jar ../jar/MazeGame.jar
+          jar umf manifest.txt ../classes_8/MazeGame_8.jar
+          mv ../classes_8/MazeGame_8.jar ../jar/MazeGame_8.jar
 
       - name: Upload JAR as release asset
         uses: actions/upload-release-asset@v1
@@ -47,6 +47,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: build/jar/MazeGame.jar
-          asset_name: MazeGame.jar
+          asset_path: build/jar/MazeGame_8.jar
+          asset_name: MazeGame_8.jar
           asset_content_type: application/java-archive

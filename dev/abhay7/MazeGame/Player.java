@@ -16,11 +16,14 @@ public class Player implements KeyListener {
     // Color bounds, declaring the min and max color of the walls
     private int lowerRGBBound = 20, higherRGBBound = 215;
 
+    // Variable to hold whether the player needs the next level to be loaded
     private boolean needsNextLevel = false;
 
+    // Variables to hold whether we cast a ray and hit the goal/endpoint horizontally/vertically
     private boolean isHorizGoal = false;
     private boolean isVertGoal = false;
-    
+
+    // Objects to handle our sound, same as in MazeGame
     private SoundPlayer soundPlayer;
     private Thread soundThread;
 
@@ -33,6 +36,7 @@ public class Player implements KeyListener {
         this.velocityMultiplier = velocityMultiplier;
         this.rotationSpeed = rotationSpeed;
         
+        // Initialize sound player and thread
         soundPlayer = new SoundPlayer(walkingSoundPath);
         soundThread = new Thread(soundThread);
         soundThread.start();
@@ -61,7 +65,7 @@ public class Player implements KeyListener {
     public void keyReleased(KeyEvent key) {
         // When a key is let go or "released," we make sure that its corresponding boolean is set to false so we stop moving
         if((key.getKeyCode() == KeyEvent.VK_UP)) {
-            if(!this.backIsPressed) {
+            if(!this.backIsPressed) { // stop sound when the key is released
                 soundPlayer.stop();
             }
             forwardIsPressed = false;
@@ -83,6 +87,8 @@ public class Player implements KeyListener {
         int rectOffset = 0;
         int lineWidth = 4; // Define how many pixels wide each induvidual segment should be.
         int rayCount = MazeGame.WIDTH / lineWidth; // Number of rays to draw
+
+        // TODO: Do calculation on angles in order to eliminate the slight curvature there currently is
 
         // For loop which goes through every "Ray" in our Raycasting algorithm. 
         // Remember that direction and fov is in radians, so we look at our direction, then go from left to right for each ray, from half our fov to the left of our direction to half our fov to the right
@@ -168,6 +174,7 @@ public class Player implements KeyListener {
             totalYOffsetHorizInter += normalYOffset;
         }
 
+        // If we hit the goal horizontally, then we set isHorizGoal to true so we know we did
         if(
             (((int) (right ? (x + totalXOffsetHorizInter) : (x - totalXOffsetHorizInter))) > -1) &&
             (((int) (right ? (x + totalXOffsetHorizInter) : (x - totalXOffsetHorizInter))) < map[0].length) &&
@@ -315,6 +322,7 @@ public class Player implements KeyListener {
             double xOff = (Math.cos(this.direction) * velocityMultiplier);
             double yOff = -(Math.sin(this.direction) * velocityMultiplier);    
 
+            // Start the walking sound
             if(this.forwardIsPressed || this.backIsPressed) {
                 soundPlayer.start();
             }
@@ -357,6 +365,7 @@ public class Player implements KeyListener {
         }
     }
 
+    // Reset directions
     private void setDirsFalse() {
         this.leftIsPressed = false;
         this.rightIsPressed = false;
@@ -364,22 +373,19 @@ public class Player implements KeyListener {
         this.backIsPressed = false;
     }
 
+    // Getters/Setters
     public boolean getNeedsNextLevel() {
         return this.needsNextLevel;
     }
-
     public void setNeedsNextLevel(boolean b) {
         this.needsNextLevel = b;
     }
-
     public boolean getQuitIsPressed() {
         return this.quitIsPressed;
     }
-
     public void setQuitIsPressed(boolean b) {
         this.quitIsPressed = b;
     }
-
     public void setX(double x) {
         this.x = x;
     }
@@ -390,6 +396,7 @@ public class Player implements KeyListener {
         this.direction = direction;
     }
 
+    // Close audio stream
     public void closeAudioStreams() {
         soundPlayer.destroy();
         try { soundThread.join(); } catch(Exception e) {}

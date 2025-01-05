@@ -1,6 +1,6 @@
 package dev.abhay7.MazeGame; // My Java Package Name
 
-// Import AWT, TimeUnit, and Swing Libraries
+// Import required libraries
 import java.awt.Canvas;
 import java.awt.Graphics;
 import java.awt.Color;
@@ -10,7 +10,6 @@ import java.awt.Image;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.image.BufferStrategy;
-import java.util.concurrent.TimeUnit;
 
 import javax.imageio.ImageIO;
 
@@ -21,6 +20,8 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
+
+import java.util.concurrent.TimeUnit;
 
 // Declare our MazeGame, which extends Canvas so we can draw graphics, and implements the Runnable interface so we can call it via a Thread
 public class MazeGame extends Canvas implements Runnable, MouseListener {
@@ -46,18 +47,17 @@ public class MazeGame extends Canvas implements Runnable, MouseListener {
     // Actual Player/Camera object
     public Player player;
 
+    // MapGenerator object
     private MapGenerator mapGenerator;
 
-    // Resources
+    // Resource Paths/Variables
     public static final String MAPS_PATH = "/res/maps.txt";
     public static final String BACKGROUND_IMAGE_PATH = "/res/bgimage.jpg";
     public static final String TITLE_FONT_PATH = "/res/valorant.ttf";
-    public static final String BUTTON_FONT_PATH = "/res/nintendo.otf";
     public static final String WALKING_SFX = "/res/footsteps.wav";
     public static final String GAME_SOUND = "/res/MazeGameSong.wav";
     private Image backgroundImage;
     private Font titleFont;
-    private Font buttonFont;
     private Font defaultFont = new JLabel().getFont();
     private SoundPlayer sp;
     private Thread soundThread;
@@ -68,6 +68,8 @@ public class MazeGame extends Canvas implements Runnable, MouseListener {
     private int easyButX1 = 0, easyButY1 = 0, easyButX2 = 0, easyButY2 = 0;
     private int hardButX1 = 0, hardButY1 = 0, hardButX2 = 0, hardButY2 = 0;
     private int genButX1 = 0, genButY1 = 0, genButX2 = 0, genButY2 = 0;
+    
+    // Booleans used for system logic/rendering
     private boolean isEasyMode = true;
     private boolean isGenMap = false;
 
@@ -92,19 +94,22 @@ public class MazeGame extends Canvas implements Runnable, MouseListener {
         this.map = mapGenerator.getMap(currentLevel);
         levelCount = mapGenerator.maps.length;
 
+        // Initialize our sound player with the game theme song, and start the thread (doesn't start the song. That happens seperately)
         sp = new SoundPlayer(GAME_SOUND);
         soundThread = new Thread(sp);
         soundThread.start();
         
         // Initialize Resources
+        /*
+         * In order to provide compatibility with self-contained jar files, resources are read using the "getResourceAsStream()" method, which returns a readable "stream" which accesses file data
+         * I learned how to 1) Read images and 2) Read fonts
+        */
+
         try (InputStream bgImgStream = getClass().getResourceAsStream(BACKGROUND_IMAGE_PATH)) {
-            if (bgImgStream != null) {
-                backgroundImage = ImageIO.read(bgImgStream);
-            } else {
-                throw new FileNotFoundException("Background image not found: " + BACKGROUND_IMAGE_PATH);
-            }
+            if (bgImgStream != null) backgroundImage = ImageIO.read(bgImgStream);
+            else throw new FileNotFoundException("Background image not found: " + BACKGROUND_IMAGE_PATH);
+            
         } catch (Exception e) {
-            backgroundImage = null;
             e.printStackTrace();
         }
 
@@ -112,27 +117,11 @@ public class MazeGame extends Canvas implements Runnable, MouseListener {
             if (fontStream != null) {
                 titleFont = Font.createFont(Font.TRUETYPE_FONT, fontStream);
                 titleFont = titleFont.deriveFont(titleFont.getSize() * (WIDTH / 20) * 1.0f);
-            } else {
-                throw new FileNotFoundException("Title font not found: " + TITLE_FONT_PATH);
-            }
+            } else throw new FileNotFoundException("Title font not found: " + TITLE_FONT_PATH);
         } catch (Exception e) {
-            titleFont = null;
             e.printStackTrace();
         }
 
-        try (InputStream fontStream = getClass().getResourceAsStream(BUTTON_FONT_PATH)) {
-            if (fontStream != null) {
-                buttonFont = Font.createFont(Font.TRUETYPE_FONT, fontStream);
-                buttonFont = buttonFont.deriveFont(buttonFont.getSize() * (WIDTH / 20) * 1.0f);
-            } else {
-                throw new FileNotFoundException("Button font not found: " + BUTTON_FONT_PATH);
-            }
-        } catch (Exception e) {
-            buttonFont = null;
-            e.printStackTrace();
-        }
-
-        
         // Create the window
         new Window(WIDTH, HEIGHT, TITLE, ICON_PATH, this);
     }
@@ -141,11 +130,11 @@ public class MazeGame extends Canvas implements Runnable, MouseListener {
     public synchronized void start() {
         player = new Player(playerStartX, playerStartY, playerStartDirection, playerFOV, playerVelocityMultiplier, playerRotationSpeed, WALKING_SFX); // Initialize player
         this.addKeyListener(player); // Because the player implements "KeyListener," it IS-A key listener which we can attach to the canvas
-        this.addMouseListener(this);
+        this.addMouseListener(this); // Because MazeGame implements "MouseListener" for menu events, we add "this"
         gameThread = new Thread(this); // Initialize our game thread and start the program
-        gameThread.start();
+        gameThread.start(); // start the game thread
         isRunning = true;
-        sp.start();
+        sp.start(); // start the music
     }
 
     // Method to stop the game when we are done running. Cleanly stops program and extra Thread
@@ -210,20 +199,28 @@ public class MazeGame extends Canvas implements Runnable, MouseListener {
     // The "update" method which updates in game variables and values, such as x & y positions
     private void tickGame() {
         player.tick(map); // The only thing we need to tick is the player, and it's tick method requires the map.
-        if(player.getNeedsNextLevel() == true) {
+
+        // Check if the player has completed a level, and if the player has, give them the next level
+        if(isPlaying && player.getNeedsNextLevel() == true) {
             player.setNeedsNextLevel(false);
             currentLevel++;
+            // If we have completed all the levels, or are in a randomly generated map, we go display a message and go back to the menu.
             if(currentLevel >= levelCount || isGenMap) {
                 isPlaying = false;
+                isGenMap = false;
                 currentLevel = 0;
                 JOptionPane.showMessageDialog(this, "Congrats, you beat the level(s)!");
             }
+            // Reset the player coordinates to the normal start point
             player.setX(playerStartX);
             player.setY(playerStartY);
             player.setDirection(playerStartDirection);
+            // Update the map
             map = mapGenerator.getMap(currentLevel);
         }
-        if(player.getQuitIsPressed() == true) {
+        
+        // If the player pressed escape, we quit, similar resets as before
+        if(isPlaying && player.getQuitIsPressed() == true) {
             player.setQuitIsPressed(false);
             player.setNeedsNextLevel(false);
             isPlaying = false;
@@ -234,12 +231,13 @@ public class MazeGame extends Canvas implements Runnable, MouseListener {
             map = mapGenerator.getMap(currentLevel);
             isGenMap = false;
         }
+    
     }
 
     // The "render" method which draws graphics to the screen
     private void renderGame(int lastFps) {
 
-        // BufferStrategy is where graphics are essentially the location where graphics are drawn to before we eventually "show" the graphics on the screen
+        // BufferStrategy is where the location where graphics are drawn to before we eventually "show" the graphics on the screen
         BufferStrategy bs = this.getBufferStrategy();
         if(bs == null) { // The bufferstrategy will be null at the start, so we need to initialize it
             this.createBufferStrategy(3); // This sets up a more resource intensive but more powerful "Triple Buffer" system which constantly utilizes the processor so there always is a frame available for display
@@ -256,6 +254,7 @@ public class MazeGame extends Canvas implements Runnable, MouseListener {
         // The next layer should be the 3d view the player sees
         player.renderView(g, map);
 
+        // If we are in easy mode, we show the minimap
         if(isEasyMode) {
             // The next part of the view is our minimap, which we simply render by drawing our 2d array of the map
             for(int i = 0; i < this.map.length; i++) {
@@ -274,10 +273,10 @@ public class MazeGame extends Canvas implements Runnable, MouseListener {
                     g.drawRect(j * tileSideLength, i * tileSideLength, tileSideLength, tileSideLength);
                 }
             }
+            // We then want to render the player on the minimap itself.
+            player.renderMiniMap(g, tileSideLength);
         }
 
-        // We then want to render the player on the minimap itself.
-        player.renderMiniMap(g, tileSideLength);
         // We want to draw the crosshair in the center
         player.renderCrosshair(g);
 
@@ -302,9 +301,7 @@ public class MazeGame extends Canvas implements Runnable, MouseListener {
         Graphics g = bs.getDrawGraphics();
         
         // Draw our menu background image
-        if(backgroundImage != null) {
-            g.drawImage(backgroundImage, 0, 0, this);
-        }
+        if(backgroundImage != null) g.drawImage(backgroundImage, 0, 0, this);
         if(titleFont != null) g.setFont(titleFont);
 
         // Draw our menu title and buttons
@@ -313,71 +310,85 @@ public class MazeGame extends Canvas implements Runnable, MouseListener {
         int textWidth = fontMetrics.stringWidth(TITLE);
         g.drawString(TITLE, (WIDTH - textWidth) / 2, HEIGHT / 4);
 
-        g.setFont(buttonFont);
+        // We use font metrics in order to determine how many pixels fonts take so we can do math and calculate how to center the text
         fontMetrics = g.getFontMetrics();
         String playStr = "Play";
         String quitStr = "Quit";
 
+        // Draw the Play Button and it's border
         textWidth = fontMetrics.stringWidth(playStr);
         g.setColor(Color.CYAN);
-        g.fillRect((WIDTH - textWidth) / 4 - 10, (HEIGHT / 2) - (int) (fontMetrics.getHeight() / 1.5), textWidth + 20, (fontMetrics.getHeight() + 20));
+        g.fillRect((WIDTH - textWidth) / 4 - 10, (HEIGHT / 2) - (int) (fontMetrics.getHeight()), textWidth + 20, (fontMetrics.getHeight() + 20));
         g.setColor(Color.DARK_GRAY);
+        g.drawRect((WIDTH - textWidth) / 4 - 10, (HEIGHT / 2) - (int) (fontMetrics.getHeight()), textWidth + 20, (fontMetrics.getHeight() + 20));
         g.drawString(playStr, (WIDTH - textWidth) / 4, HEIGHT / 2);
         
+        // Update the bounds variables so the mouse listeners know when the button is clicked.
         playButX1 = (WIDTH - textWidth) / 4 - 10;
-        playButY1 = (HEIGHT / 2) - (int) (fontMetrics.getHeight() / 1.5);
+        playButY1 = (HEIGHT / 2) - (int) (fontMetrics.getHeight());
         playButX2 = playButX1 + textWidth + 20;
         playButY2 = playButY1 + (fontMetrics.getHeight() + 20);
 
+        // Draw the quit button
         g.setColor(Color.CYAN);
         textWidth = fontMetrics.stringWidth(quitStr);
-        g.fillRect((WIDTH - textWidth) / 2 + (WIDTH - textWidth) / 4 - 10, (HEIGHT / 2) - (int) (fontMetrics.getHeight() / 1.5), textWidth + 20, (fontMetrics.getHeight() + 20));
+        g.fillRect((WIDTH - textWidth) / 2 + (WIDTH - textWidth) / 4 - 10, (HEIGHT / 2) - (int) (fontMetrics.getHeight()), textWidth + 20, (fontMetrics.getHeight() + 20));
         g.setColor(Color.DARK_GRAY);
+        g.drawRect((WIDTH - textWidth) / 2 + (WIDTH - textWidth) / 4 - 10, (HEIGHT / 2) - (int) (fontMetrics.getHeight()), textWidth + 20, (fontMetrics.getHeight() + 20));
         g.drawString(quitStr, (WIDTH - textWidth) / 2 + (WIDTH - textWidth) / 4, HEIGHT / 2);
 
+        // Update bounds
         quitButX1 = (WIDTH - textWidth) / 2 + (WIDTH - textWidth) / 4 - 10;
-        quitButY1 = (HEIGHT / 2) - (int) (fontMetrics.getHeight() / 1.5);
+        quitButY1 = (HEIGHT / 2) - (int) (fontMetrics.getHeight());
         quitButX2 = quitButX1 + textWidth + 20;
         quitButY2 = quitButY1 + (fontMetrics.getHeight() + 20);
 
-        g.setFont(titleFont);
-        fontMetrics = g.getFontMetrics();
+        // Draw Difficulty Label
         String setDiffString = "Current Difficulty: " + (isEasyMode ? "Easy" : "Hard");
         textWidth = fontMetrics.stringWidth(setDiffString);
         g.setColor(Color.GREEN);
         g.drawString(setDiffString, (WIDTH - textWidth) / 2, (int) (HEIGHT / 1.5));
 
+        // Draw Easy Button
         String easyStr = "Easy";
         g.setColor(Color.CYAN);
         textWidth = fontMetrics.stringWidth(easyStr);
         g.fillRect((WIDTH - textWidth) / 4 - 10, (int) (HEIGHT / 1.2) - fontMetrics.getHeight(), textWidth + 20, (fontMetrics.getHeight() + 20));
         g.setColor(Color.DARK_GRAY);
+        g.drawRect((WIDTH - textWidth) / 4 - 10, (int) (HEIGHT / 1.2) - fontMetrics.getHeight(), textWidth + 20, (fontMetrics.getHeight() + 20));
         g.drawString(easyStr, (WIDTH - textWidth) / 4, (int) (HEIGHT / 1.2));
 
+        // Set bounds
         easyButX1 = (WIDTH - textWidth) / 4 - 10;
         easyButY1 = (int) (HEIGHT / 1.2) - fontMetrics.getHeight();
         easyButX2 = easyButX1 + textWidth + 20;
         easyButY2 = easyButY1 + (fontMetrics.getHeight() + 20);
         
+        // Draw Hard Button
         String hardStr = "Hard";
         g.setColor(Color.CYAN);
         textWidth = fontMetrics.stringWidth(hardStr);
         g.fillRect((WIDTH - textWidth) / 2 + (WIDTH - textWidth) / 4 - 10, (int) (HEIGHT / 1.2) - fontMetrics.getHeight(), textWidth + 20, (fontMetrics.getHeight() + 20));
         g.setColor(Color.DARK_GRAY);
+        g.drawRect((WIDTH - textWidth) / 2 + (WIDTH - textWidth) / 4 - 10, (int) (HEIGHT / 1.2) - fontMetrics.getHeight(), textWidth + 20, (fontMetrics.getHeight() + 20));
         g.drawString(hardStr, (WIDTH - textWidth) / 2 + (WIDTH - textWidth) / 4, (int) (HEIGHT / 1.2));
 
+        // Set bounds
         hardButX1 = (WIDTH - textWidth) / 2 + (WIDTH - textWidth) / 4 - 10;
         hardButY1 = (int) (HEIGHT / 1.2) - fontMetrics.getHeight();
         hardButX2 = hardButX1 + textWidth + 20;
         hardButY2 = hardButY1 + (fontMetrics.getHeight() + 20);
 
+        // Draw Generate Map Button
         String genStr = "Gen Map";
         g.setColor(Color.CYAN);
         textWidth = fontMetrics.stringWidth(genStr);
         g.fillRect(10, 10, textWidth + 20, (fontMetrics.getHeight() + 20));
         g.setColor(Color.DARK_GRAY);
+        g.drawRect(10, 10, textWidth + 20, (fontMetrics.getHeight() + 20));
         g.drawString(genStr, 20, 20 + fontMetrics.getHeight());
 
+        // Set bounds
         genButX1 = 10;
         genButY1 = 10;
         genButX2 = genButX1 + textWidth + 20;
@@ -393,24 +404,29 @@ public class MazeGame extends Canvas implements Runnable, MouseListener {
         bs.show(); // Actually display the graphics to the screen from the bufferstrategy
     }
 
+    // Simple helper method to get the string to show on the upper right for our fps
     public String getFPSString(int fps) {
         if(fps > 99) return "FPS: 99+";
         else return "FPS: " + fps;
     }
 
     public static void main(String... args) {
+
+        // Make the GUI look native to the platform it's running on (Windows, Linux, Macos)
         try { 
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); 
         } catch(Exception e){}
+
         SwingUtilities.invokeLater(() -> { // Because JFrame and AWT are NOT thread-safe, we wan't to ensure that updates to the GUI can occur after we update data 
             new MazeGame(); // Create the window and start the game
         });
     }
 
-    // Initialize button behaviors
+    // Initialize button behaviors. These are for the buttons
     @Override
     public void mouseClicked(MouseEvent e) {
         if(!isPlaying) {
+            // If we aren't playing (which means we are in the menu), add the following behaviors for clicks
             if(e.getX() > playButX1 && e.getX() < playButX2 && e.getY() > playButY1 && e.getY() < playButY2) isPlaying = true;
             else if(e.getX() > quitButX1 && e.getX() < quitButX2 && e.getY() > quitButY1 && e.getY() < quitButY2) {
                 isRunning = false;
@@ -426,6 +442,7 @@ public class MazeGame extends Canvas implements Runnable, MouseListener {
         }
     }
 
+    // We don't care about these events, but we are required to have them because we implemented the interface
     @Override
     public void mouseEntered(MouseEvent e) {}
     @Override
