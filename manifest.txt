@@ -1,0 +1,1 @@
+Main-Class: dev.abhay7.MazeGame.MazeGame

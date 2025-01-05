@@ -1,4 +1,3 @@
-// TODO: Fix fisheye by adjusting angles in for loop instead of using cosine.
 package dev.abhay7.MazeGame; // My Java Package Name
 
 // Import AWT Libraries
@@ -13,18 +12,30 @@ public class Player implements KeyListener {
     // Declare variables for current position, direction faced (radians), fov (radians), and the multipliers for velocity and rotation per second
     private double x, y, direction, fov, velocityMultiplier, rotationSpeed;
     // Declare booleans to hold if movement should be happening.
-    private boolean leftIsPressed, rightIsPressed, forwardIsPressed, backIsPressed;
+    private boolean leftIsPressed, rightIsPressed, forwardIsPressed, backIsPressed, quitIsPressed;
     // Color bounds, declaring the min and max color of the walls
     private int lowerRGBBound = 20, higherRGBBound = 215;
 
+    private boolean needsNextLevel = false;
+
+    private boolean isHorizGoal = false;
+    private boolean isVertGoal = false;
+    
+    private SoundPlayer soundPlayer;
+    private Thread soundThread;
+
     // Constructor for the Player. Simply sets all these variables
-    public Player(double startX, double startY, double direction, double fov, double velocityMultiplier, double rotationSpeed) {
+    public Player(double startX, double startY, double direction, double fov, double velocityMultiplier, double rotationSpeed, String walkingSoundPath) {
         this.x = startX;
         this.y = startY;
         this.direction = direction;
         this.fov = fov;
         this.velocityMultiplier = velocityMultiplier;
         this.rotationSpeed = rotationSpeed;
+        
+        soundPlayer = new SoundPlayer(walkingSoundPath);
+        soundThread = new Thread(soundThread);
+        soundThread.start();
     }
 
     // Getters for X/Y Position
@@ -49,20 +60,31 @@ public class Player implements KeyListener {
     @Override
     public void keyReleased(KeyEvent key) {
         // When a key is let go or "released," we make sure that its corresponding boolean is set to false so we stop moving
-        if((key.getKeyCode() == KeyEvent.VK_UP)) forwardIsPressed = false;
+        if((key.getKeyCode() == KeyEvent.VK_UP)) {
+            if(!this.backIsPressed) {
+                soundPlayer.stop();
+            }
+            forwardIsPressed = false;
+        }
         if((key.getKeyCode() == KeyEvent.VK_LEFT)) leftIsPressed = false;
-        if((key.getKeyCode() == KeyEvent.VK_DOWN)) backIsPressed = false;
+        if((key.getKeyCode() == KeyEvent.VK_DOWN)) {
+            if(!this.forwardIsPressed) {
+                soundPlayer.stop();
+            }
+            backIsPressed = false;
+        }
         if((key.getKeyCode() == KeyEvent.VK_RIGHT)) rightIsPressed = false;
+        if((key.getKeyCode() == KeyEvent.VK_ESCAPE)) quitIsPressed = true;
     }
 
     // Render the 3D View the player sees, requires graphics and the map to draw.
-    public void renderView(Graphics g, int[][] map) {
+    public void renderView(Graphics g, Integer[][] map) {
         // Variable to hold how far off each x value should be for our drawings
         int rectOffset = 0;
         int lineWidth = 4; // Define how many pixels wide each induvidual segment should be.
         int rayCount = MazeGame.WIDTH / lineWidth; // Number of rays to draw
 
-        // For loop which goes through ev ery "Ray" in our Raycasting algorithm. 
+        // For loop which goes through every "Ray" in our Raycasting algorithm. 
         // Remember that direction and fov is in radians, so we look at our direction, then go from left to right for each ray, from half our fov to the left of our direction to half our fov to the right
         for(double dir = (this.direction + (this.fov / 2)); dir >= (this.direction - (this.fov / 2)); dir -= (this.fov / rayCount)) {
         
@@ -98,18 +120,23 @@ public class Player implements KeyListener {
 
             // We compare these two values and get the shorter distance, because we want to display the closest wall
             double shorterIntersectionDistance = horizIntersectionDistance < vertIntersectionDistance ? horizIntersectionDistance : vertIntersectionDistance;
+            Color wallColor = Color.WHITE;
+            if(horizIntersectionDistance < vertIntersectionDistance && isHorizGoal) wallColor = Color.GREEN;
+            if(vertIntersectionDistance < horizIntersectionDistance && isVertGoal) wallColor = Color.GREEN;
 
             // Draw the wall to the screen by essentially drawing the entire pixel column
-            drawWall(g, shorterIntersectionDistance, this.direction, dir, lineWidth, rectOffset, 30, getColorFromDistance(shorterIntersectionDistance, Color.WHITE, dir, 2), getColorFromDistance(shorterIntersectionDistance, Color.DARK_GRAY, dir, 0.4));
+            drawWall(g, shorterIntersectionDistance, this.direction, dir, lineWidth, rectOffset, 30, getColorFromDistance(shorterIntersectionDistance, wallColor, dir, 2.5), getColorFromDistance(shorterIntersectionDistance, Color.DARK_GRAY, dir, 0.4));
 
             // Update our offset for the next column
             rectOffset += lineWidth;
+            isHorizGoal = false;
+            isVertGoal = false;
         }
 
     }
 
     // Magical math part 1. For a ray, this method finds the distance to the nearest horizontal wall that the ray would hit
-    private double getHorizIntersectionDistance(double dir, boolean top, boolean right, boolean posTan, int[][] map) {
+    private double getHorizIntersectionDistance(double dir, boolean top, boolean right, boolean posTan, Integer[][] map) {
         // These two lines find the distance to the nearest integer array index in the y axis, and then it finds the x axis distance needed to travel with the current angle in order to reach this flat y
         double nearestYOffset = top ? (this.y - ((int) (this.y))) : (((int) (this.y + 1)) - this.y);
         double nearestXOffset = posTan ? (nearestYOffset / Math.tan(dir)) : (nearestYOffset / (-Math.tan(dir)));
@@ -131,15 +158,27 @@ public class Player implements KeyListener {
             (((int) (right ? (x + totalXOffsetHorizInter) : (x - totalXOffsetHorizInter))) < map[0].length) &&
             (((int) (top   ? (y - totalYOffsetHorizInter - normalYOffset) : (y + totalYOffsetHorizInter))) > -1) &&
             (((int) (top   ? (y - totalYOffsetHorizInter - normalYOffset) : (y + totalYOffsetHorizInter))) < map.length) &&
-            (map[
+            map[
                 ((int) (top ? (y - totalYOffsetHorizInter - normalYOffset) : (y + totalYOffsetHorizInter)))
             ][
                 ((int) (right ? (x + totalXOffsetHorizInter) : (x - totalXOffsetHorizInter)))
-            ] < 1)
+            ] < 1
         ) {
             totalXOffsetHorizInter += normalXOffset;
             totalYOffsetHorizInter += normalYOffset;
         }
+
+        if(
+            (((int) (right ? (x + totalXOffsetHorizInter) : (x - totalXOffsetHorizInter))) > -1) &&
+            (((int) (right ? (x + totalXOffsetHorizInter) : (x - totalXOffsetHorizInter))) < map[0].length) &&
+            (((int) (top   ? (y - totalYOffsetHorizInter - normalYOffset) : (y + totalYOffsetHorizInter))) > -1) &&
+            (((int) (top   ? (y - totalYOffsetHorizInter - normalYOffset) : (y + totalYOffsetHorizInter))) < map.length) &&
+            map[
+                ((int) (top ? (y - totalYOffsetHorizInter - normalYOffset) : (y + totalYOffsetHorizInter)))
+            ][
+                ((int) (right ? (x + totalXOffsetHorizInter) : (x - totalXOffsetHorizInter)))
+            ] == 2
+        ) isHorizGoal = true;
 
         // Use trig to get the distance
         return top ? (totalYOffsetHorizInter / Math.sin(dir)) : -(totalYOffsetHorizInter / Math.sin(dir));
@@ -147,7 +186,7 @@ public class Player implements KeyListener {
 
     // Magical math part 2
     // Follows the same method as the above but adjusted to find the enarest vertical wall intersection
-    private double getVertIntersectionDistance(double dir, boolean top, boolean right, boolean posTan, int[][] map) {
+    private double getVertIntersectionDistance(double dir, boolean top, boolean right, boolean posTan, Integer[][] map) {
         double nearestXOffset = right ? (((int) (this.x + 1)) - this.x) : (this.x - ((int) (this.x)));
         double nearestYOffset = posTan ? (Math.tan(dir)) * nearestXOffset : (-Math.tan(dir)) * nearestXOffset;
 
@@ -171,6 +210,18 @@ public class Player implements KeyListener {
             totalXOffsetVertInter += normalXOffset;
             totalYOffsetVertInter += normalYOffset;
         }
+
+        if(
+            (((int) (right ? (x + totalXOffsetVertInter) : (x - totalXOffsetVertInter - normalXOffset))) > -1) &&
+            (((int) (right ? (x + totalXOffsetVertInter) : (x - totalXOffsetVertInter - normalXOffset))) < map[0].length) &&
+            (((int) (top   ? (y - totalYOffsetVertInter) : (y + totalYOffsetVertInter))) > -1) &&
+            (((int) (top   ? (y - totalYOffsetVertInter) : (y + totalYOffsetVertInter))) < map.length) &&
+            map[
+                ((int) (top   ? (y - totalYOffsetVertInter) : (y + totalYOffsetVertInter)))
+            ][
+                ((int) (right ? (x + totalXOffsetVertInter) : (x - totalXOffsetVertInter - normalXOffset)))
+            ] == 2
+        ) isVertGoal = true;
 
         return top ? (totalYOffsetVertInter / Math.sin(dir)) : -(totalYOffsetVertInter / Math.sin(dir));
     }
@@ -197,7 +248,7 @@ public class Player implements KeyListener {
         g.setColor(new Color(7, 11, 52));
         g.fillRect(rectOffset, 0, lineWidth, (MazeGame.HEIGHT - (rectHeight))/2);
         // Draw stars in our night sky.
-        if((Math.random()) > .85) {// Draw star only 15% of the time
+        if((Math.random()) > .90) {// Draw star only 10% of the time
             g.setColor(Color.CYAN);
             // Randomly choose an x/y position inside the current rectangle, then draw a rounded rectangle for the "star"
             g.fillRoundRect(rectOffset + ((int) (Math.random() * 4)), (int) (Math.random() * ((MazeGame.HEIGHT - (rectHeight))/2)), 2, 2, 1, 1);
@@ -244,7 +295,7 @@ public class Player implements KeyListener {
     }
 
     // Player "tick()" method, which updates data (x/y position mainly).
-    public void tick(int[][] map) {
+    public void tick(Integer[][] map) {
         
         // If both of them are pressed, then don't move
         if(!(this.leftIsPressed && this.rightIsPressed)) {
@@ -264,26 +315,84 @@ public class Player implements KeyListener {
             double xOff = (Math.cos(this.direction) * velocityMultiplier);
             double yOff = -(Math.sin(this.direction) * velocityMultiplier);    
 
+            if(this.forwardIsPressed || this.backIsPressed) {
+                soundPlayer.start();
+            }
+
             if(this.forwardIsPressed) {
                 // If the space in front of us in the horizontal direction is open, then we increment x
                 if(map[(int)this.y][(int) (this.x + xOff)] == 0){
                     this.x += xOff;
+                } else if(map[(int)this.y][(int) (this.x + xOff)] == 2) {
+                    needsNextLevel = true;
+                    setDirsFalse();
+                    soundPlayer.stop();
                 }
                 // If the space in front of us in the vertical direction is open, then we increment y
                 if(map[(int)(this.y + yOff)][(int) (this.x)] == 0){
                     this.y += yOff;
+                } else if(map[(int)(this.y + yOff)][(int) (this.x)] == 2) {
+                    needsNextLevel = true;
+                    setDirsFalse();
+                    soundPlayer.stop();
                 }
             } else if(this.backIsPressed) {
                 // As before, we do the same checks then change our x/y value by the calculated offset.
                 // The difference, however, is that because we are moving backwards, we need to subtract the values
                 if(map[(int)this.y][(int) (this.x - xOff)] == 0){
                     this.x -= xOff;
+                } else if(map[(int)this.y][(int) (this.x - xOff)] == 2) {
+                    needsNextLevel = true;
+                    setDirsFalse();
+                    soundPlayer.stop();
                 }
                 if(map[(int)(this.y - yOff)][(int) (this.x)] == 0){
                     this.y -= yOff;
+                } else if(map[(int)(this.y - yOff)][(int) (this.x)] == 2) {
+                    needsNextLevel = true;
+                    setDirsFalse();
+                    soundPlayer.stop();
                 }
             }
         }
+    }
+
+    private void setDirsFalse() {
+        this.leftIsPressed = false;
+        this.rightIsPressed = false;
+        this.forwardIsPressed = false;
+        this.backIsPressed = false;
+    }
+
+    public boolean getNeedsNextLevel() {
+        return this.needsNextLevel;
+    }
+
+    public void setNeedsNextLevel(boolean b) {
+        this.needsNextLevel = b;
+    }
+
+    public boolean getQuitIsPressed() {
+        return this.quitIsPressed;
+    }
+
+    public void setQuitIsPressed(boolean b) {
+        this.quitIsPressed = b;
+    }
+
+    public void setX(double x) {
+        this.x = x;
+    }
+    public void setY(double y) {
+        this.y = y;
+    }
+    public void setDirection(double direction) {
+        this.direction = direction;
+    }
+
+    public void closeAudioStreams() {
+        soundPlayer.destroy();
+        try { soundThread.join(); } catch(Exception e) {}
     }
 
     @Override

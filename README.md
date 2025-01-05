@@ -1,10 +1,11 @@
 # 3D Raycaster
 
-A simple 3d raycaster using DDA, implemented in Java.
+A 3d raycaster maze game!
 
-Next goals include building a maze generation algorithm and fixing the current fish eye (there's a bandaid currently by using cosine on the distance to the nearest wall, but that fails a lot)
+Uses DDA for maze generation, but there are also premade levels.
+Fish-eye effect still needs to be fixed through the viewing pane concept (changing the angles for the ray for loop) but that will be done at a later time.
 
 ## Gameplay (14 Dec 2024)
-![Gameplay](res/gameplay-dec-14-2024.mp4)
+![Gameplay](repo/gameplay-dec-14-2024.mp4)
 
 https://github.com/user-attachments/assets/f41d2458-ec8f-44d4-bfe1-c52a264cd037

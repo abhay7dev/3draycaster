@@ -5,9 +5,11 @@ import java.awt.Color;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 
-// Declare Window Class, which itself is a JFrame, so we can extend it
+// Declare Window Class
 public class Window extends JFrame {
 
+    private MazeGame game;
+    
     // Simple constructor which accepts settings and initializes a window
     public Window(int width, int height, String title, String iconPath, MazeGame game) {
         
@@ -20,11 +22,18 @@ public class Window extends JFrame {
         
         this.getContentPane().setBackground(Color.BLACK); // Set the background color by default to be black
         
+        this.game = game;
         this.add(game); // Add our game to this JFrame
         this.setVisible(true); // Set this JFrame to be visible
 
         game.requestFocusInWindow(); // Direct focus of our cursor to the game automatically
         game.start(); // Start the game (Executing the thread)
+    }
+
+    @Override
+    public void dispose() {
+        if(game.player != null) game.player.closeAudioStreams();
+        super.dispose();
     }
 
 }
