@@ -1,19 +1,17 @@
 package dev.abhay7.MazeGame;
 
-import java.io.File;
-import java.io.FileNotFoundException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Scanner;
 import java.util.Stack;
 
 public class MapGenerator {
 
-    public static Integer[][][] maps;
+    public Integer[][][] maps;
 
-    static {
-        File f = new File(MazeGame.MAPS_PATH);        
-        try {
-            Scanner scan = new Scanner(f);
+    public MapGenerator() {    
+        try (InputStream inputStream = getClass().getResourceAsStream(MazeGame.MAPS_PATH)) {
+            Scanner scan = new Scanner(inputStream);
             ArrayList<Integer[][]> mapsList = new ArrayList<>();
 
             ArrayList<Integer[]> rows = new ArrayList<>();
@@ -48,7 +46,7 @@ public class MapGenerator {
             }
 
             scan.close();
-        } catch(FileNotFoundException fnfe) {
+        } catch(Exception e) {
             System.err.println("Failed to read res/maps.txt! Levels will not be read.\n");
             // fnfe.printStackTrace();
             maps = new Integer[][][] {
@@ -79,11 +77,11 @@ public class MapGenerator {
         }
     }
 
-    public static Integer[][] getMap(int level) {
+    public Integer[][] getMap(int level) {
         return maps[level];
     }
 
-    public static Integer[][] generateMaze(int size) {
+    public Integer[][] generateMaze(int size) {
         if(size < 5) throw new IllegalArgumentException("Argument " + size + " is less than 5");
         Integer[][] maze = new Integer[size][size];
 
@@ -112,7 +110,7 @@ public class MapGenerator {
         return maze;
     }
 
-    private static void dfsGeneration(Coord curr, Stack<Coord> coords, Integer[][] maze) {
+    private void dfsGeneration(Coord curr, Stack<Coord> coords, Integer[][] maze) {
         if(coords.size() == 0) return;
         ArrayList<Coord> availCoords = getAvailCoords(curr, maze);
         if(availCoords.size() > 0) {
@@ -126,7 +124,7 @@ public class MapGenerator {
         }
     }
 
-    private static ArrayList<Coord> getAvailCoords(Coord curr, Integer[][] maze) {
+    private ArrayList<Coord> getAvailCoords(Coord curr, Integer[][] maze) {
         
         ArrayList<Coord> coords = new ArrayList<Coord>();
 
@@ -169,7 +167,7 @@ public class MapGenerator {
         return coords;
     }
 
-    private static class Coord {
+    private class Coord {
         private int y, x;
         Coord(int y, int x) {
             this.y = y;

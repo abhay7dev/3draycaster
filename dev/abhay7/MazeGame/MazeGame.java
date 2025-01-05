@@ -10,12 +10,12 @@ import java.awt.Image;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.image.BufferStrategy;
-
 import java.util.concurrent.TimeUnit;
 
 import javax.imageio.ImageIO;
 
-import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.InputStream;
 
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -46,13 +46,15 @@ public class MazeGame extends Canvas implements Runnable, MouseListener {
     // Actual Player/Camera object
     public Player player;
 
+    private MapGenerator mapGenerator;
+
     // Resources
-    public static final String MAPS_PATH = "res/maps.txt";
-    public static final String BACKGROUND_IMAGE_PATH = "res/bgimage.jpg";
-    public static final String TITLE_FONT_PATH = "res/valorant.ttf";
-    public static final String BUTTON_FONT_PATH = "res/nintendo.otf";
-    public static final String WALKING_SFX = "res/footsteps.wav";
-    public static final String GAME_SOUND = "res/MazeGameSong.wav";
+    public static final String MAPS_PATH = "/res/maps.txt";
+    public static final String BACKGROUND_IMAGE_PATH = "/res/bgimage.jpg";
+    public static final String TITLE_FONT_PATH = "/res/valorant.ttf";
+    public static final String BUTTON_FONT_PATH = "/res/nintendo.otf";
+    public static final String WALKING_SFX = "/res/footsteps.wav";
+    public static final String GAME_SOUND = "/res/MazeGameSong.wav";
     private Image backgroundImage;
     private Font titleFont;
     private Font buttonFont;
@@ -86,37 +88,50 @@ public class MazeGame extends Canvas implements Runnable, MouseListener {
     // Constructor for this mazegame, which essentially initializes a Window while passing "this" game instance as the canvas
     public MazeGame() {
         // Initialize our campaign maps
-        this.map = MapGenerator.getMap(currentLevel);
-        levelCount = MapGenerator.maps.length;
+        mapGenerator = new MapGenerator();
+        this.map = mapGenerator.getMap(currentLevel);
+        levelCount = mapGenerator.maps.length;
 
         sp = new SoundPlayer(GAME_SOUND);
         soundThread = new Thread(sp);
         soundThread.start();
         
         // Initialize Resources
-        try {
-            File bgImgFile = new File(BACKGROUND_IMAGE_PATH);
-            backgroundImage = ImageIO.read(bgImgFile);
-        } catch(Exception e) {
+        try (InputStream bgImgStream = getClass().getResourceAsStream(BACKGROUND_IMAGE_PATH)) {
+            if (bgImgStream != null) {
+                backgroundImage = ImageIO.read(bgImgStream);
+            } else {
+                throw new FileNotFoundException("Background image not found: " + BACKGROUND_IMAGE_PATH);
+            }
+        } catch (Exception e) {
             backgroundImage = null;
             e.printStackTrace();
         }
 
-        try {
-            File fontFile = new File(TITLE_FONT_PATH);
-            titleFont = Font.createFont(Font.TRUETYPE_FONT, fontFile);
-            titleFont = titleFont.deriveFont(titleFont.getSize() * (WIDTH / 20) * 1.0f);
-        } catch(Exception e) {
+        try (InputStream fontStream = getClass().getResourceAsStream(TITLE_FONT_PATH)) {
+            if (fontStream != null) {
+                titleFont = Font.createFont(Font.TRUETYPE_FONT, fontStream);
+                titleFont = titleFont.deriveFont(titleFont.getSize() * (WIDTH / 20) * 1.0f);
+            } else {
+                throw new FileNotFoundException("Title font not found: " + TITLE_FONT_PATH);
+            }
+        } catch (Exception e) {
             titleFont = null;
+            e.printStackTrace();
         }
 
-        try {
-            File fontFile = new File(BUTTON_FONT_PATH);
-            buttonFont = Font.createFont(Font.TRUETYPE_FONT, fontFile);
-            buttonFont = buttonFont.deriveFont(buttonFont.getSize() * (WIDTH / 20) * 1.0f);
-        } catch(Exception e) {
+        try (InputStream fontStream = getClass().getResourceAsStream(BUTTON_FONT_PATH)) {
+            if (fontStream != null) {
+                buttonFont = Font.createFont(Font.TRUETYPE_FONT, fontStream);
+                buttonFont = buttonFont.deriveFont(buttonFont.getSize() * (WIDTH / 20) * 1.0f);
+            } else {
+                throw new FileNotFoundException("Button font not found: " + BUTTON_FONT_PATH);
+            }
+        } catch (Exception e) {
             buttonFont = null;
+            e.printStackTrace();
         }
+
         
         // Create the window
         new Window(WIDTH, HEIGHT, TITLE, ICON_PATH, this);
@@ -206,7 +221,7 @@ public class MazeGame extends Canvas implements Runnable, MouseListener {
             player.setX(playerStartX);
             player.setY(playerStartY);
             player.setDirection(playerStartDirection);
-            map = MapGenerator.getMap(currentLevel);
+            map = mapGenerator.getMap(currentLevel);
         }
         if(player.getQuitIsPressed() == true) {
             player.setQuitIsPressed(false);
@@ -216,7 +231,7 @@ public class MazeGame extends Canvas implements Runnable, MouseListener {
             player.setX(playerStartX);
             player.setY(playerStartY);
             player.setDirection(playerStartDirection);
-            map = MapGenerator.getMap(currentLevel);
+            map = mapGenerator.getMap(currentLevel);
             isGenMap = false;
         }
     }
@@ -404,7 +419,7 @@ public class MazeGame extends Canvas implements Runnable, MouseListener {
             else if(e.getX() > easyButX1 && e.getX() < easyButX2 && e.getY() > easyButY1 && e.getY() < easyButY2) isEasyMode = true;
             else if(e.getX() > hardButX1 && e.getX() < hardButX2 && e.getY() > hardButY1 && e.getY() < hardButY2) isEasyMode = false;
             else if(e.getX() > genButX1 && e.getX() < genButX2 && e.getY() > genButY1 && e.getY() < genButY2) {
-                map = MapGenerator.generateMaze(35);
+                map = mapGenerator.generateMaze(35);
                 isPlaying = true;
                 isGenMap = true;
             }

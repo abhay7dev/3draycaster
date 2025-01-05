@@ -1,6 +1,6 @@
 package dev.abhay7.MazeGame;
 
-import java.io.File;
+import java.net.URL;
 
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
@@ -13,8 +13,12 @@ public class SoundPlayer implements Runnable {
     
     public SoundPlayer(String audPath) {
         try {
-            File f = new File(audPath);
-            this.audioStream = AudioSystem.getAudioInputStream(f);
+            URL audioUrl = getClass().getResource(audPath);
+            if (audioUrl == null) {
+                throw new IllegalArgumentException("Audio file not found: " + audPath);
+            }
+
+            this.audioStream = AudioSystem.getAudioInputStream(audioUrl);
             audioClip = AudioSystem.getClip();
             audioClip.open(this.audioStream);
         } catch(Exception e) {
