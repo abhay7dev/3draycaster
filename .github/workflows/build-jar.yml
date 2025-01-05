@@ -1,6 +1,8 @@
 name: Build and Release Self-Contained JAR
 run-name: ${{ github.actor }} is building a jar file for his Maze Game 🚀
-on: [push]
+on:
+  release:
+    types: [published]  # Trigger only when a release is published
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
